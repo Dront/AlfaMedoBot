@@ -1,8 +1,20 @@
+import logging
 import os
 import time
 
 import requests
 from telegram.client import Telegram
+
+# Configure logging to output to both stdout and file
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(),  # Output to stdout
+        logging.FileHandler("clinic_check.log"),  # Output to log file
+    ],
+)
+logger = logging.getLogger(__name__)
 
 
 class TelegramBotError(Exception):
@@ -59,7 +71,7 @@ def send_telegram_notification(message: str) -> bool:
 
     response = requests.post(url, json=payload, timeout=10)
     response.raise_for_status()
-    print("✓ Telegram notification sent successfully")
+    logger.info("✓ Telegram notification sent successfully")
 
 
 def get_latest_message(tg: Telegram, chat_id: int) -> dict:
@@ -123,7 +135,7 @@ def click_button(tg: Telegram, chat_id: int, message_id: int, button: dict) -> N
     button_type = button.get("type", {})
     callback_data = button_type.get("data", "")
 
-    print(f"  Clicking button: {button.get('text')}")
+    logger.info(f"  Clicking button: {button.get('text')}")
 
     result = tg.call_method(
         "getCallbackQueryAnswer",
@@ -138,7 +150,7 @@ def click_button(tg: Telegram, chat_id: int, message_id: int, button: dict) -> N
     if result.error:
         raise ButtonClickError(f"Error clicking button: {result.error_info}")
 
-    print("  ✓ Button clicked successfully")
+    logger.info("  ✓ Button clicked successfully")
 
 
 def extract_clinic_names(message: dict) -> list[str]:
@@ -173,18 +185,18 @@ def navigate_and_get_clinics(tg: Telegram, chat_id: int) -> list[str]:
     Returns:
         list: List of clinic names
     """
-    print("Step 1: Getting initial message...")
+    logger.info("Step 1: Getting initial message...")
     message = get_latest_message(tg, chat_id)
 
     # Check if we're already at the clinic selection screen - need to restart
     if check_message_text(message, "ВЫБОР КЛИНИКИ"):
-        print("  ✓ Already at clinic selection screen, going back to start...")
+        logger.info("  ✓ Already at clinic selection screen, going back to start...")
 
         # Find and click "В начало" button to restart
         _, _, button = find_button(message, "В начало")
         click_button(tg, chat_id, message.get("id"), button)
 
-        print("  Waiting for bot response...")
+        logger.info("  Waiting for bot response...")
         time.sleep(2)
 
         # Get the new message (should be welcome screen)
@@ -192,34 +204,34 @@ def navigate_and_get_clinics(tg: Telegram, chat_id: int) -> list[str]:
 
     # Step 2: Check if it's the welcome message and click "Записаться"
     if check_message_text(message, "ДОБРО ПОЖАЛОВАТЬ"):
-        print("  ✓ Found welcome message: 'ДОБРО ПОЖАЛОВАТЬ!'")
+        logger.info("  ✓ Found welcome message: 'ДОБРО ПОЖАЛОВАТЬ!'")
 
         _, _, button = find_button(message, "Записаться")
         click_button(tg, chat_id, message.get("id"), button)
 
-        print("  Waiting for bot response...")
+        logger.info("  Waiting for bot response...")
         time.sleep(2)
 
         # Get the new message
         message = get_latest_message(tg, chat_id)
 
     # Step 3: Check if it's the scenario selection message and click "Выбрать клинику"
-    print("\nStep 2: Checking for scenario selection message...")
+    logger.info("Step 2: Checking for scenario selection message...")
     if not check_message_text(message, "ВЫБОР СЦЕНАРИЯ ЗАПИСИ"):
         msg_text = message.get("content", {}).get("text", {}).get("text", "N/A")[:100]
         raise UnexpectedMessageError(
             f"Expected message with 'ВЫБОР СЦЕНАРИЯ ЗАПИСИ', got: {msg_text}"
         )
 
-    print("  ✓ Found scenario selection message: 'ВЫБОР СЦЕНАРИЯ ЗАПИСИ'")
+    logger.info("  ✓ Found scenario selection message: 'ВЫБОР СЦЕНАРИЯ ЗАПИСИ'")
 
     _, _, button = find_button(message, "Выбрать клинику")
     click_button(tg, chat_id, message.get("id"), button)
 
-    print("  Waiting for bot response...")
+    logger.info("  Waiting for bot response...")
     time.sleep(2)
 
-    print("\nStep 3: Getting clinic list...")
+    logger.info("Step 3: Getting clinic list...")
     message = get_latest_message(tg, chat_id)
 
     clinics = extract_clinic_names(message)
@@ -242,16 +254,16 @@ def get_new_clinics() -> list[str]:
 
     try:
         tg.login()
-        print("✓ Logged in successfully!\n")
+        logger.info("✓ Logged in successfully!")
 
         clinics = navigate_and_get_clinics(tg, ALFAMEDOBOT_CHAT_ID)
 
         new_clinics = [clinic for clinic in clinics if clinic not in KNOWN_CLINICS]
 
-        print(f"✓ Found {len(clinics)} clinics:")
+        logger.info(f"✓ Found {len(clinics)} clinics:")
 
         for idx, clinic_name in enumerate(clinics, 1):
-            print(f"{idx}. {clinic_name}")
+            logger.info(f"{idx}. {clinic_name}")
 
         return new_clinics
     finally:
@@ -260,20 +272,20 @@ def get_new_clinics() -> list[str]:
 
 if __name__ == "__main__":
     while True:
-        print(f"\n{'=' * 60}")
+        logger.info(f"{'=' * 60}")
 
         try:
             new_clinics = get_new_clinics()
         except Exception as e:
             error_msg = f"Clinic Check Error: Unexpected error: {e}"
-            print(f"\n✗ {error_msg}")
+            logger.exception(f"✗ {error_msg}")
             send_telegram_notification(error_msg)
             new_clinics = []
 
         if new_clinics:
             notify_msg = f"⚠️ NEW CLINICS DETECTED: {', '.join(new_clinics)}"
 
-            print(notify_msg)
+            logger.warning(notify_msg)
             send_telegram_notification(notify_msg)
 
         time.sleep(60 * 60 * 3)
