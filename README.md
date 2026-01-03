@@ -1,4 +1,4 @@
-# @AlfaMedoBot avalable clinics monitor
+# @AlfaMedoBot available clinics monitor
 
 This project uses TDLib (Telegram Database Library) to login to your Telegram account and alert you on telegram when new clinic is found in @AlfaMedoBot. Primarily to find out when Чайка will become available :)
 
