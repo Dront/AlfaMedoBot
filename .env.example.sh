@@ -1,8 +1,0 @@
-export API_ID='1234567'
-export API_HASH='123qweasd'
-export PHONE_NUMBER='+79031234567'
-export DATABASE_ENCRYPTION_KEY='random-string'
-export ALFAMEDOBOT_CHAT_ID='7509713245'
-export TD_LIBRARY_PATH='/full/path/to/compiled/lib'
-export TG_NOTIFICATION_CHAT_ID='12355765'
-export TG_NOTIFICATION_BOT_TOKEN='token'

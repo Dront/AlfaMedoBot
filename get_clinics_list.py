@@ -5,15 +5,6 @@ import time
 import requests
 from telegram.client import Telegram
 
-# Configure logging to output to both stdout and file
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(),  # Output to stdout
-        logging.FileHandler("clinic_check.log"),  # Output to log file
-    ],
-)
 logger = logging.getLogger(__name__)
 
 
@@ -52,6 +43,8 @@ PHONE_NUMBER = get_cred("PHONE_NUMBER")
 DATABASE_ENCRYPTION_KEY = get_cred("DATABASE_ENCRYPTION_KEY")
 ALFAMEDOBOT_CHAT_ID = int(get_cred("ALFAMEDOBOT_CHAT_ID"))
 TD_LIBRARY_PATH = get_cred("TD_LIBRARY_PATH", required=False)
+CHECK_INTERVAL = 60 * 60 * 3  # 3 hours
+TD_LIBRARY_FILES_DIRECTORY = "tdlib_files/"
 
 # Telegram notification settings
 TG_NOTIFICATION_CHAT_ID = get_cred("TG_NOTIFICATION_CHAT_ID")
@@ -66,7 +59,7 @@ KNOWN_CLINICS = [
 
 
 def send_telegram_notification(message: str) -> bool:
-    url = f"https://api.telegram.org/bot5214201125:{TG_NOTIFICATION_BOT_TOKEN}/sendMessage"
+    url = f"https://api.telegram.org/bot{TG_NOTIFICATION_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TG_NOTIFICATION_CHAT_ID, "text": message}
 
     response = requests.post(url, json=payload, timeout=10)
@@ -248,7 +241,7 @@ def get_new_clinics() -> list[str]:
         api_hash=API_HASH,
         phone=PHONE_NUMBER,
         database_encryption_key=DATABASE_ENCRYPTION_KEY,
-        files_directory="tdlib_files/",
+        files_directory=TD_LIBRARY_FILES_DIRECTORY,
         library_path=TD_LIBRARY_PATH,
     )
 
@@ -271,13 +264,19 @@ def get_new_clinics() -> list[str]:
 
 
 if __name__ == "__main__":
+    # Configure logging to output to both stdout and file
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+    )
+
     while True:
         logger.info(f"{'=' * 60}")
 
         try:
             new_clinics = get_new_clinics()
         except Exception as e:
-            error_msg = f"Clinic Check Error: Unexpected error: {e}"
+            error_msg = f"get new clinics error: {e}"
             logger.exception(f"✗ {error_msg}")
             send_telegram_notification(error_msg)
             new_clinics = []
@@ -288,4 +287,4 @@ if __name__ == "__main__":
             logger.warning(notify_msg)
             send_telegram_notification(notify_msg)
 
-        time.sleep(60 * 60 * 3)
+        time.sleep(CHECK_INTERVAL)
