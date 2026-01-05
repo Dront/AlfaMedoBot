@@ -43,8 +43,12 @@ PHONE_NUMBER = get_cred("PHONE_NUMBER")
 DATABASE_ENCRYPTION_KEY = get_cred("DATABASE_ENCRYPTION_KEY")
 ALFAMEDOBOT_CHAT_ID = int(get_cred("ALFAMEDOBOT_CHAT_ID"))
 TD_LIBRARY_PATH = get_cred("TD_LIBRARY_PATH", required=False)
-CHECK_INTERVAL = 60 * 60 * 3  # 3 hours
 TD_LIBRARY_FILES_DIRECTORY = "tdlib_files/"
+
+if interval_str := get_cred("CHECK_INTERVAL", required=False):
+    CHECK_INTERVAL = int(interval_str)
+else:
+    CHECK_INTERVAL = 60 * 60 * 3  # 3 hours
 
 # Telegram notification settings
 TG_NOTIFICATION_CHAT_ID = get_cred("TG_NOTIFICATION_CHAT_ID")
